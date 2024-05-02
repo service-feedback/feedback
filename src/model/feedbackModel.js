@@ -83,12 +83,13 @@ const feedbackSchema = new mongoose.Schema({
  },
  vehicleNumber:{
     type: String,
-    require: true,
+    default: ""
+   //  require: true,
     // require: true,
  },
  name:{
     type: String,
-    require: true,
+    default: ""
  },
 //  lastName:{
 //     type: String,
@@ -96,7 +97,7 @@ const feedbackSchema = new mongoose.Schema({
 //  },
  phone:{
     type: String,
-    require: true,
+    default: ""
  },
  location:{
     type: String,

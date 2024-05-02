@@ -86,9 +86,9 @@ const feedback = async (req, res) => {
         advisorTimeAndAttention: arr,
         billExplanation: arr,
         transparencyPrice: arr,
-        name:userData.name,
-       phone:userData.phone,
-       vehicleNumber:userData.vehicleNumber
+      //   name:u,
+      //  phone:userData.phone,
+      //  vehicleNumber:userData.vehicleNumber
       //  location:
       };
       // Validate data against the defined keys and their corresponding valid values
@@ -116,9 +116,11 @@ const feedback = async (req, res) => {
         }
       }
       console.log(userData)
+      if(userData.length !== 0){
       data.name = userData[0].name
       data.phone=userData[0].phone
       data.vehicleNumber=userData[0].vehicleNumber
+    }
       // Create a new document
       let newData = {
         ...data,
