@@ -5,7 +5,7 @@ require("moment-timezone");
 moment.tz.setDefault("Asia/Kolkata");
 let dates = moment().format("YYYY-MM-DD");
 let times = moment().format("HH:mm:ss");
-const AdminSchema = new mongoose.Schema({
+const UserDataSchema = new mongoose.Schema({
     name: {
         type: String,
         require: true,
@@ -14,14 +14,22 @@ const AdminSchema = new mongoose.Schema({
     email: {
         type: String,
         require: true,
-        unique: true,
+        // unique: true,
         trim: true
     },
-    password: {
+    phone:{
         type: String,
         require: true,
-        trim: true
     },
+    vehicleNumber:{
+        type: String,
+        require: true,
+        // require: true,
+     },
+     url:{
+        type: String,
+        require: true,
+     },
     deletedAt: {
         type: Date
     },
@@ -39,4 +47,4 @@ const AdminSchema = new mongoose.Schema({
         default:times
     }
 }, { timestamps: true })
-module.exports = mongoose.model('Admin', AdminSchema)
+module.exports = mongoose.model('UserData', UserDataSchema)
