@@ -108,6 +108,10 @@ const feedbackSchema = new mongoose.Schema({
    // require: true,
    default: ""
 },
+verifiedCustomer:{
+   type:Boolean,
+   default :true
+},
  leadFrom: {
     type: String,
     default: "feedback",
