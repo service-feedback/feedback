@@ -101,7 +101,7 @@ const feedbackSchema = new mongoose.Schema({
  },
  location:{
     type: String,
-    require: true,
+    default: ""
  },
  feedback:{
    type: String,
