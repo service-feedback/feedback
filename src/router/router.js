@@ -16,6 +16,12 @@ const multer = require("multer");
 const app = express();
 const userDataController = require("../controller/userDataController");
 app.use(express.static(path.resolve(__dirname, "src/public")));
+
+//=============================================================================
+router.get("/test-me", function (req, res) {
+  res.send("this is successfully created");
+});
+
 //==================================================================================================
 var storage = multer.diskStorage({
   destination: (req, file, cb) => {
