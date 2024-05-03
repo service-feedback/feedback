@@ -88,6 +88,7 @@ console.log(`Validation Result: ${isValidVehicleNumber(trimmedVehicleNumber)}`);
             email: response[x].email,
             phone: response[x].phone,
             vehicleNumber: response[x].vehicleNumber,
+            location:response[x].location,
             isDeleted: false,
             // vchNo: response[x]['Vch-No.'],
             

@@ -21,6 +21,10 @@ const UserDataSchema = new mongoose.Schema({
         type: String,
         require: true,
     },
+    location:{
+        type: String,
+        require: true,
+    },
     vehicleNumber:{
         type: String,
         require: true,

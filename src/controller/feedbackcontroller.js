@@ -121,6 +121,7 @@ const feedback = async (req, res) => {
       data.name = userData[0].name
       data.phone=userData[0].phone
       data.vehicleNumber=userData[0].vehicleNumber
+      data.location=userData[0].location
     }
     data.phone= phoneNo
       // Create a new document
