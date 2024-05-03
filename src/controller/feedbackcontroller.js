@@ -66,6 +66,16 @@ const feedback = async (req, res) => {
           data.recommendation = `${data.recommendation} Not Likely at all`;
         }
       }
+      if(data.location){
+        let userData = await userDataModel.find({phone:phoneNo})
+        if(data.location !== userData[0].location){
+          let finduserData = await userDataModel.find({phone:phoneNo})
+          if(!finduserData){
+            return res.status(404).send({status:false,message:"phone number is not found"})
+          }
+          await userDataModel.findOneAndUpdate({phone:phoneNo},{location:data.location},{new:true})
+        }
+      }
       existingData = Object.assign(existingData, data);
       await existingData.save();
       return res.status(200).send({ status: true, data: existingData });
