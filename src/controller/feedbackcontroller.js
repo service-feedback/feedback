@@ -14,7 +14,8 @@ const feedback = async (req, res) => {
     let times = moment().format("HH:mm:ss");
     // Check if there is existing data in the database for the provided vehicle number and created on the same date
     let existingData = await feedbackModel.findOne({
-      vehicleNumber: data.vehicleNumber,
+      // vehicleNumber: data.vehicleNumber,
+      phone:phoneNo,
       date: currentDate,
     });
 
@@ -115,12 +116,13 @@ const feedback = async (req, res) => {
           data.recommendation = `${data.recommendation} Not Likely at all`;
         }
       }
-      console.log(userData)
+      // console.log(userData)
       if(userData.length !== 0){
       data.name = userData[0].name
       data.phone=userData[0].phone
       data.vehicleNumber=userData[0].vehicleNumber
     }
+    data.phone= phoneNo
       // Create a new document
       let newData = {
         ...data,
