@@ -21,6 +21,7 @@ const feedback = async (req, res) => {
 
     if (existingData) {
       // Update the existing document with new data
+      let userData = await userDataModel.find({phone:phoneNo})
       const keyValuesMap = {
         overAllPerformance: arr,
         preferingSabooRKS: arr, //["Strongly",	"Not Much",	"Don’t Visit Again",""],
@@ -55,7 +56,7 @@ const feedback = async (req, res) => {
         }
       }
  
-      
+
       if (data.recommendation) {
         if (data.recommendation == 10 || data.recommendation == 9) {
           data.recommendation = ` ${data.recommendation} Extremely Likely`;
@@ -67,9 +68,9 @@ const feedback = async (req, res) => {
           data.recommendation = `${data.recommendation} Not Likely at all`;
         }
       }
-      if(data.location){
-        let userData = await userDataModel.find({phone:phoneNo})
-        if(data.location !== userData[0].location){
+      if(userData.length !==0 &&  data.location){
+        
+        if( userData && data.location !== userData[0].location){
           let finduserData = await userDataModel.find({phone:phoneNo})
           if(!finduserData){
             return res.status(404).send({status:false,message:"phone number is not found"})
@@ -134,7 +135,7 @@ const feedback = async (req, res) => {
       data.vehicleNumber=userData[0].vehicleNumber
       data.location=userData[0].location
     }
-    data.phone= phoneNo
+    data.phone= phoneNo 
       // Create a new document
       let newData = {
         ...data,
