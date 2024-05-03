@@ -1,5 +1,5 @@
 const feedbackModel = require("../model/feedbackModel");
-const userDataModel = require("../model/userDataModel")
+const userDataModel = require("../model/userDataModel");
 const moment = require("moment");
 require("moment-timezone");
 
@@ -7,7 +7,7 @@ const feedback = async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   try {
     let data = req.body;
-    let phoneNo = req.query.phone 
+    let phoneNo = req.query.phone;
     let arr = ["Excellent", "Very Good", "Good", "Average", "Poor", ""];
     moment.tz.setDefault("Asia/Kolkata"); // Default India time zone
     let currentDate = moment().format("YYYY-MM-DD");
@@ -15,13 +15,13 @@ const feedback = async (req, res) => {
     // Check if there is existing data in the database for the provided vehicle number and created on the same date
     let existingData = await feedbackModel.findOne({
       // vehicleNumber: data.vehicleNumber,
-      phone:phoneNo,
+      phone: phoneNo,
       date: currentDate,
     });
 
     if (existingData) {
       // Update the existing document with new data
-      let userData = await userDataModel.find({phone:phoneNo})
+      let userData = await userDataModel.find({ phone: phoneNo });
       const keyValuesMap = {
         overAllPerformance: arr,
         preferingSabooRKS: arr, //["Strongly",	"Not Much",	"Don’t Visit Again",""],
@@ -55,7 +55,6 @@ const feedback = async (req, res) => {
           });
         }
       }
- 
 
       if (data.recommendation) {
         if (data.recommendation == 10 || data.recommendation == 9) {
@@ -68,14 +67,19 @@ const feedback = async (req, res) => {
           data.recommendation = `${data.recommendation} Not Likely at all`;
         }
       }
-      if(userData.length !==0 &&  data.location){
-        
-        if( userData && data.location !== userData[0].location){
-          let finduserData = await userDataModel.find({phone:phoneNo})
-          if(!finduserData){
-            return res.status(404).send({status:false,message:"phone number is not found"})
+      if (userData.length !== 0 && data.location) {
+        if (userData && data.location !== userData[0].location) {
+          let finduserData = await userDataModel.find({ phone: phoneNo });
+          if (!finduserData) {
+            return res
+              .status(404)
+              .send({ status: false, message: "phone number is not found" });
           }
-          await userDataModel.findOneAndUpdate({phone:phoneNo},{location:data.location},{new:true})
+          await userDataModel.findOneAndUpdate(
+            { phone: phoneNo },
+            { location: data.location },
+            { new: true }
+          );
         }
       }
       existingData = Object.assign(existingData, data);
@@ -83,7 +87,7 @@ const feedback = async (req, res) => {
       return res.status(200).send({ status: true, data: existingData });
     } else {
       // Define keys and their corresponding valid values in an object
-      let userData = await userDataModel.find({phone:phoneNo})
+      let userData = await userDataModel.find({ phone: phoneNo });
       const keyValuesMap = {
         overAllPerformance: arr,
         preferingSabooRKS: arr, //["Strongly",	"Not Much",	"Don’t Visit Again",""],
@@ -99,10 +103,10 @@ const feedback = async (req, res) => {
         advisorTimeAndAttention: arr,
         billExplanation: arr,
         transparencyPrice: arr,
-      //   name:u,
-      //  phone:userData.phone,
-      //  vehicleNumber:userData.vehicleNumber
-      //  location:
+        //   name:u,
+        //  phone:userData.phone,
+        //  vehicleNumber:userData.vehicleNumber
+        //  location:
       };
       // Validate data against the defined keys and their corresponding valid values
       for (const key in keyValuesMap) {
@@ -129,13 +133,13 @@ const feedback = async (req, res) => {
         }
       }
       // console.log(userData)
-      if(userData.length !== 0){
-      data.name = userData[0].name
-      data.phone=userData[0].phone
-      data.vehicleNumber=userData[0].vehicleNumber
-      data.location=userData[0].location
-    }
-    data.phone= phoneNo 
+      if (userData.length !== 0) {
+        data.name = userData[0].name;
+        data.phone = userData[0].phone;
+        data.vehicleNumber = userData[0].vehicleNumber;
+        data.location = userData[0].location;
+      }
+      data.phone = phoneNo;
       // Create a new document
       let newData = {
         ...data,
