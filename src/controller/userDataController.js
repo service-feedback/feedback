@@ -84,7 +84,7 @@ console.log(`Validation Result: ${isValidVehicleNumber(trimmedVehicleNumber)}`);
             date: response[x].date,
             time: response[x].time,
             name: response[x].name,
-            url: `localhost:3001/feedback?phone=${response[x].phone}`,
+            url: `https://saboogroup.co.in/saboo-rks-service-feedback2/test/${response[x].phone}`,
             email: response[x].email,
             phone: response[x].phone,
             vehicleNumber: response[x].vehicleNumber,
