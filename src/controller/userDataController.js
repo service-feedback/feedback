@@ -129,10 +129,7 @@ const getUserData = async (req, res) => {
       { $sort: { createdAt: -1 } }, // Sort the documents in descending order based on the 'createdAt' field
     ]);
 
-    // Check if data is empty or no documents were found
-    if (!data || data.length === 0) {
-      return res.status(404).send({ status: false, data: [] });
-    }
+   
 
     // Return the successful response with the data
     res.status(200).send({ status: true, data: data });
