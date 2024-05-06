@@ -14,7 +14,7 @@ const importUser = async (req, res) => {
     if (!filename.toLowerCase().includes('service')) {
       return res.status(400).json({
         status: false,
-        message: 'Incorrect file type. Please upload a filename contains text service',
+        message: 'Please upload a filename contains text service in it.',
       });
     }
 
