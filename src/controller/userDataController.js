@@ -51,11 +51,12 @@ const importUser = async (req, res) => {
           invalidRows.push(missingKeys);
         }
       } else {
-        const existingClient = await userDataModel.findOne({  vehicleNumber: response[x].vehicleNumber });
+        const existingClient = await userDataModel.findOne({  vehicleNumber: response[x].vehicleNumber , phone:response[x].phone });
         if (existingClient) {
           duplicateEntries.push({
             row: x + 2,
             vehicleNumber: response[x].vehicleNumber,
+            phoneNumber :response[x].phone
           });
         } else {
           if (!isValidPhone(response[x].phone)) {
