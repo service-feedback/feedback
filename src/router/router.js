@@ -45,6 +45,7 @@ router.post(
 //   userDataController.importVendor
 // );
 router.get("/getUserData",userDataController.getUserData)
+router.put("/markAllUsersAsDeleted",userDataController.markAllUsersAsDeleted)
 ////////////////==================================////////////////////
 router.post("/register", register);
 router.post("/login", login);

@@ -1,6 +1,8 @@
 const { response } = require('express');
 // const VendorModel = require('../models/VendorModel');
 const mongoose = require('mongoose');
+const moment = require("moment");
+require("moment-timezone");
 
 const userDataModel = require('../model/userDataModel.js');
 const fs = require('fs');
@@ -10,6 +12,9 @@ let {isValidPhone,isValidVehicleNumber}= require("../validation/validator")
 const importUser = async (req, res) => {
   try {
     // Check if the file name is correct (assuming the correct file name is "client.csv")
+    moment.tz.setDefault("Asia/Kolkata"); // Default India time zone
+    let currentDate = moment().format("YYYY-MM-DD");
+    let times = moment().format("HH:mm:ss");
     const filename = req.file.filename;
     if (!filename.toLowerCase().includes('service')) {
       return res.status(400).json({
@@ -82,8 +87,8 @@ console.log(`Validation Result: ${isValidVehicleNumber(trimmedVehicleNumber)}`);
           
           
           userData.push({
-            date: response[x].date,
-            time: response[x].time,
+            date: currentDate,
+            time: times,
             name: response[x].name,
             url: `https://saboogroup.co.in/saboo-rks-service-feedback2/test/${response[x].phone}`,
             email: response[x].email,
@@ -139,4 +144,30 @@ const getUserData = async (req, res) => {
   }
 };
 
-module.exports = { importUser ,getUserData};
+//============================================================================================
+const markAllUsersAsDeleted = async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  try {
+    // Update all users in the collection to set isDeleted to true
+    const result = await userDataModel.updateMany(
+      { isDeleted: { $ne: true } },
+      { $set: { isDeleted: true, deletedAt: new Date() } }
+    );
+
+
+    // Check if an y documents were updated
+    console.log(result)
+    if (result.modifiedCount > 0) {
+      return res.status(200).send({ status: true, message: "All users marked as deleted successfully." });
+    } else {
+      return res.status(404).send({ status: false, message: "No users found to mark as deleted." });
+    }
+  } catch (error) {
+    return res.status(500).send({ status: false, message: error.message });
+  }
+}
+
+
+
+
+module.exports = { importUser ,getUserData , markAllUsersAsDeleted};
