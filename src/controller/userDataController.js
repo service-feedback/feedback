@@ -71,18 +71,18 @@ const importUser = async (req, res) => {
             });
             // continue; // Skip this iteration if the phone number is invalid
           }
-          const trimmedVehicleNumber = response[x].vehicleNumber.trim();
+          // const trimmedVehicleNumber = response[x].vehicleNumber.trim();
 
-          if (!isValidVehicleNumber(trimmedVehicleNumber)) {
-            console.log(`Trimmed Vehicle Number: ${trimmedVehicleNumber}`);
-console.log(`Validation Result: ${isValidVehicleNumber(trimmedVehicleNumber)}`);
+//           if (!isValidVehicleNumber(trimmedVehicleNumber)) {
+//             console.log(`Trimmed Vehicle Number: ${trimmedVehicleNumber}`);
+// console.log(`Validation Result: ${isValidVehicleNumber(trimmedVehicleNumber)}`);
 
-            invalidRows.push({
-              row: x + 2,
-              reason: 'Invalid vehicle number',
-            });
-            continue; // Skip this iteration if the vehicle number is invalid
-          }
+//             invalidRows.push({
+//               row: x + 2,
+//               reason: 'Invalid vehicle number',
+//             });
+//             continue; // Skip this iteration if the vehicle number is invalid
+//           }
           
           
           
