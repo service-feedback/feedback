@@ -9,6 +9,8 @@ let {
 
 const { register, login } = require("../controller/adminController");
 
+const { otpVerification, resendOtp, forgetPassword } = require("../controller/otpController")
+
 let { authentication } = require("../middleware/auth");
 const fs = require("fs");
 const path = require("path");
@@ -54,4 +56,9 @@ router.post("/login", login);
 router.post("/feedback", feedback);
 router.get("/getfeedback", authentication, getfeedback);
 router.post("/filtersfeedbacks", authentication, filtersfeedbacks);
+//======================================================================
+
+router.post("/otpVerification",otpVerification)
+router.post("/resendOtp",resendOtp)
+
 module.exports = router;
