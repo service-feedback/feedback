@@ -5,6 +5,7 @@ let {
   feedback,
   getfeedback,
   filtersfeedbacks,
+  feedbackStatistics,
 } = require("../controller/feedbackcontroller");
 
 const { register, login } = require("../controller/adminController");
@@ -56,6 +57,7 @@ router.post("/login", login);
 router.post("/feedback", feedback);
 router.get("/getfeedback", authentication, getfeedback);
 router.post("/filtersfeedbacks", authentication, filtersfeedbacks);
+router.post("/feedbackStatistics",feedbackStatistics)
 //======================================================================
 
 router.post("/otpVerification",otpVerification)
