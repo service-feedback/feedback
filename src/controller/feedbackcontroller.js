@@ -1,6 +1,6 @@
 const feedbackModel = require("../model/feedbackModel");
 const userDataModel = require("../model/userDataModel");
-const customerModel = require("../model/userDataModel");
+// const customerModel = require("../model/userDataModel");
 const moment = require("moment");
 require("moment-timezone");
 
@@ -456,8 +456,9 @@ const feedbackStatistics = async (req, res) => {
     let filters = req.body;
     if (filters.filter == "Between") {
       const { startDate, endDate } = req.body; // Assuming startDate and endDate are provided in the request body
-
-      let data = await feedbackModel.aggregate([
+    
+      // Fetch feedback data
+      let feedbackData = await feedbackModel.aggregate([
         {
           $match: {
             isDeleted: false,
@@ -471,23 +472,36 @@ const feedbackStatistics = async (req, res) => {
         },
         { $sort: { createdAt: -1 } },
       ]);
-      console.log(`Total records fetched: ${data.length}`);
-
+      console.log(`Total feedback records fetched: ${feedbackData.length}`);
+    
+      // Fetch user data
+      let userData = await userDataModel.aggregate([
+        {
+          $match: {
+            isDeleted: false,
+            $expr: {
+              $and: [
+                { $gte: ["$date", startDate] },
+                { $lte: ["$date", endDate] },
+              ],
+            },
+          },
+        },
+        { $sort: { createdAt: -1 } },
+      ]);
+      // console.log(`Total user records fetched: ${userData.length}`);
+    
       // Initialize counts for ratings
       const countsOfEmojis = [0, 0, 0, 0, 0]; // Indexes: 0 - Excellent, 1 - Very Good, 2 - Good, 3 - Average, 4 - Poor
-  
+    
       // Array of valid ratings corresponding to their positions in the counts array
-      const ratingIndexMap = [
-        "excellent",
-        "very good",
-        "good",
-        "average",
-        "poor",
-      ];
-  
+      const ratingIndexMap = ["excellent", "very good", "good", "average", "poor"];
+    
       // Object to store feedback counts per month
       const monthlyFeedbackCountsForLinearChart = {};
-  
+      const monthlyUserCountsForLinearChart = {};
+      let persentageOfemojis = [0, 0, 0, 0, 0];
+    
       // Array of month names
       const monthNames = [
         "January",
@@ -519,19 +533,20 @@ const feedbackStatistics = async (req, res) => {
         "10 Extremely Likely": 0,
       };
       let TotalcountOfRecommendation = 0;
-      // Process each record
-      data.forEach((item) => {
+    
+      // Process each feedback record
+      feedbackData.forEach((item) => {
         // Extract month and year from the date
         const date = new Date(item.date);
         const monthYear = `${monthNames[date.getMonth()]}-${date.getFullYear()}`; // e.g., "May-2024"
-  
+    
         // Increment the count for the corresponding month
         if (monthlyFeedbackCountsForLinearChart[monthYear]) {
           monthlyFeedbackCountsForLinearChart[monthYear]++;
         } else {
           monthlyFeedbackCountsForLinearChart[monthYear] = 1;
         }
-  
+    
         // Array of keys containing ratings
         const ratingKeys = [
           "overAllPerformance",
@@ -563,28 +578,38 @@ const feedbackStatistics = async (req, res) => {
           }
         });
   
-        // // Process recommendation key
-        // let countOfRecommendation = 0
+        // Process recommendation key
         const recommendation = item.recommendation?.toString().trim();
         if (recommendationCounts.hasOwnProperty(recommendation)) {
           TotalcountOfRecommendation++;
           recommendationCounts[recommendation]++;
         }
       });
-  
+    
+      // Initialize all month-year combinations in the user counts chart to zero
+      const allMonthYearKeys = Object.keys(monthlyFeedbackCountsForLinearChart);
+      allMonthYearKeys.forEach((monthYear) => {
+        monthlyUserCountsForLinearChart[monthYear] = 0;
+      });
+    
+      // Process each user record
+      userData.forEach((item) => {
+        // Extract month and year from the date
+        const date = new Date(item.date);
+        const monthYear = `${monthNames[date.getMonth()]}-${date.getFullYear()}`; // e.g., "May-2024"
+    
+        // Increment the count for the corresponding month
+        if (monthlyUserCountsForLinearChart[monthYear] !== undefined) {
+          monthlyUserCountsForLinearChart[monthYear]++;
+        }
+      });
+    
       // Separate keys and values into two arrays
-      const monthlyFeedbackKeys = Object.keys(
-        monthlyFeedbackCountsForLinearChart
-      );
-      const monthlyFeedbackValues = Object.values(
-        monthlyFeedbackCountsForLinearChart
-      );
-  
-      // Separate keys and values for recommendation counts
-      const recommendationKeys = Object.keys(recommendationCounts);
-      const recommendationValues = Object.values(recommendationCounts);
-      // console.log("countOfRecommendation")
-  
+      const monthlyFeedbackKeys = Object.keys(monthlyFeedbackCountsForLinearChart);
+      const monthlyFeedbackValues = Object.values(monthlyFeedbackCountsForLinearChart);
+
+      const monthlyUserCountsValues = Object.values(monthlyUserCountsForLinearChart);
+    
       let totalEmojis =
         countsOfEmojis[0] +
         countsOfEmojis[1] +
@@ -594,15 +619,16 @@ const feedbackStatistics = async (req, res) => {
       let Average = countsOfEmojis[3];
       let Poor = countsOfEmojis[4];
       let OverAllGood = countsOfEmojis[0] + countsOfEmojis[1] + countsOfEmojis[2];
-  
+    
       let OverAllGoodPercentage = Math.round((OverAllGood / totalEmojis) * 100);
       let AveragePercentage = Math.round((Average / totalEmojis) * 100);
       let PoorPercentage = Math.round((Poor / totalEmojis) * 100);
-  
-      // console.log("OverAllGood Percentage: " + OverAllGoodPercentage);
-      // console.log("Average Percentage: " + AveragePercentage);
-      // console.log("Poor Percentage: " + PoorPercentage);
-  
+      persentageOfemojis[0] = countsOfEmojis[0] != 0 ? Math.round((countsOfEmojis[0] / totalEmojis) * 100) : 0;  // Excellent percentage
+      persentageOfemojis[1] = countsOfEmojis[1] != 0 ? Math.round((countsOfEmojis[1] / totalEmojis) * 100) : 0;  // Very Good percentage
+      persentageOfemojis[2] = countsOfEmojis[2] != 0 ? Math.round((countsOfEmojis[2] / totalEmojis) * 100) : 0;  // Good percentage
+      persentageOfemojis[3] = countsOfEmojis[3] != 0 ? Math.round((countsOfEmojis[3] / totalEmojis) * 100) : 0;  // Average percentage
+      persentageOfemojis[4] = countsOfEmojis[4] != 0 ? Math.round((countsOfEmojis[4] / totalEmojis) * 100) : 0;  // Poor percentage
+    
       let NotLikelyAtAll =
         recommendationCounts["0 Not Likely at all"] +
         recommendationCounts["1 Not Likely at all"] +
@@ -611,31 +637,36 @@ const feedbackStatistics = async (req, res) => {
         recommendationCounts["4 Not Likely at all"] +
         recommendationCounts["5 Not Likely at all"] +
         recommendationCounts["6 Not Likely at all"];
-  
+    
       let Likely =
         recommendationCounts["7Likely"] + recommendationCounts["8Likely"];
-  
+    
       let ExtremelyLikely =
         recommendationCounts["9 Extremely Likely"] +
         recommendationCounts["10 Extremely Likely"];
-      // console.log(ExtremelyLikely, Likely, NotLikelyAtAll);
-  
+    
       let ExtremelyLikelyPercentage = Math.round((ExtremelyLikely / TotalcountOfRecommendation) * 100);
       let LikelyPercentage = Math.round((Likely / TotalcountOfRecommendation) * 100);
       let NotLikelyAtAllPercentage = Math.round((NotLikelyAtAll / TotalcountOfRecommendation) * 100);
-      // console.log(ExtremelyLikelyPercentage,LikelyPercentage,NotLikelyAtAllPercentage)
+    
       return res.status(200).send({
         status: true,
         data: {
-          countsOfEmojis,
-          totalFeedbacks: data.length,
+          persentageOfemojis,
+          totalFeedbacks: feedbackData.length,
+          totalUsers: userData.length,
+
           monthly_Feedback_Counts_LinearChart: {
             keys: monthlyFeedbackKeys,
             values: monthlyFeedbackValues,
           },
+          monthly_User_Counts_LinearChart: {
+            keys: monthlyFeedbackKeys,
+            values: monthlyUserCountsValues,
+          },
           recommendation_Counts_bar_chart: {
-            keys: recommendationKeys,
-            values: recommendationValues,
+            keys: Object.keys(recommendationCounts),
+            values: Object.values(recommendationCounts),
             countOfRecommendation: TotalcountOfRecommendation,
           },
           satisfactionPieChart: [
@@ -643,7 +674,11 @@ const feedbackStatistics = async (req, res) => {
             AveragePercentage,
             PoorPercentage,
           ],
-         recommendationPieChart:[ExtremelyLikelyPercentage,LikelyPercentage,NotLikelyAtAllPercentage]
+          recommendationPieChart: [
+            ExtremelyLikelyPercentage,
+            LikelyPercentage,
+            NotLikelyAtAllPercentage,
+          ],
         },
       });
     }
@@ -666,23 +701,33 @@ const feedbackStatistics = async (req, res) => {
         { $sort: { createdAt: -1 } },
       ]);
 
-      // console.log(`Total records fetched: ${data.length}`);
-
+      let userData = await userDataModel.aggregate([
+        {
+          $match: {
+            isDeleted: false,
+            $expr: {
+              $and: [
+                { $eq: ["$date", currentDate] },
+                //   { $lte: ["$date", endDate] }
+              ],
+            },
+          },
+        },
+        { $sort: { createdAt: -1 } },
+      ]);
+      // console.log(`Total user records fetched: ${userData.length}`);
+    
       // Initialize counts for ratings
       const countsOfEmojis = [0, 0, 0, 0, 0]; // Indexes: 0 - Excellent, 1 - Very Good, 2 - Good, 3 - Average, 4 - Poor
-  
+    
       // Array of valid ratings corresponding to their positions in the counts array
-      const ratingIndexMap = [
-        "excellent",
-        "very good",
-        "good",
-        "average",
-        "poor",
-      ];
-  
+      const ratingIndexMap = ["excellent", "very good", "good", "average", "poor"];
+    
       // Object to store feedback counts per month
       const monthlyFeedbackCountsForLinearChart = {};
-  
+      const monthlyUserCountsForLinearChart = {};
+      let persentageOfemojis = [0, 0, 0, 0, 0];
+    
       // Array of month names
       const monthNames = [
         "January",
@@ -698,7 +743,7 @@ const feedbackStatistics = async (req, res) => {
         "November",
         "December",
       ];
-  
+    
       // Initialize counts for recommendations
       const recommendationCounts = {
         "0 Not Likely at all": 0,
@@ -714,19 +759,20 @@ const feedbackStatistics = async (req, res) => {
         "10 Extremely Likely": 0,
       };
       let TotalcountOfRecommendation = 0;
-      // Process each record
+    
+      // Process each feedback record
       data.forEach((item) => {
         // Extract month and year from the date
         const date = new Date(item.date);
         const monthYear = `${monthNames[date.getMonth()]}-${date.getFullYear()}`; // e.g., "May-2024"
-  
+    
         // Increment the count for the corresponding month
         if (monthlyFeedbackCountsForLinearChart[monthYear]) {
           monthlyFeedbackCountsForLinearChart[monthYear]++;
         } else {
           monthlyFeedbackCountsForLinearChart[monthYear] = 1;
         }
-  
+    
         // Array of keys containing ratings
         const ratingKeys = [
           "overAllPerformance",
@@ -744,42 +790,52 @@ const feedbackStatistics = async (req, res) => {
           "billExplanation",
           "transparencyPrice",
         ];
-  
+    
         // Iterate over rating keys and count occurrences of each rating category
         ratingKeys.forEach((key) => {
           const rating = item[key];
           // Normalize rating by converting to lowercase and trimming spaces
           const normalizedRating = rating?.toString().toLowerCase().trim();
-  
+    
           // Find the index of the normalized rating in the ratingIndexMap array
           const index = ratingIndexMap.indexOf(normalizedRating);
           if (index !== -1) {
             countsOfEmojis[index]++;
           }
         });
-  
-        // // Process recommendation key
-        // let countOfRecommendation = 0
+    
+        // Process recommendation key
         const recommendation = item.recommendation?.toString().trim();
         if (recommendationCounts.hasOwnProperty(recommendation)) {
           TotalcountOfRecommendation++;
           recommendationCounts[recommendation]++;
         }
       });
-  
+    
+      // Initialize all month-year combinations in the user counts chart to zero
+      const allMonthYearKeys = Object.keys(monthlyFeedbackCountsForLinearChart);
+      allMonthYearKeys.forEach((monthYear) => {
+        monthlyUserCountsForLinearChart[monthYear] = 0;
+      });
+    
+      // Process each user record
+      userData.forEach((item) => {
+        // Extract month and year from the date
+        const date = new Date(item.date);
+        const monthYear = `${monthNames[date.getMonth()]}-${date.getFullYear()}`; // e.g., "May-2024"
+    
+        // Increment the count for the corresponding month
+        if (monthlyUserCountsForLinearChart[monthYear] !== undefined) {
+          monthlyUserCountsForLinearChart[monthYear]++;
+        }
+      });
+    
       // Separate keys and values into two arrays
-      const monthlyFeedbackKeys = Object.keys(
-        monthlyFeedbackCountsForLinearChart
-      );
-      const monthlyFeedbackValues = Object.values(
-        monthlyFeedbackCountsForLinearChart
-      );
-  
-      // Separate keys and values for recommendation counts
-      const recommendationKeys = Object.keys(recommendationCounts);
-      const recommendationValues = Object.values(recommendationCounts);
-      // console.log("countOfRecommendation")
-  
+      const monthlyFeedbackKeys = Object.keys(monthlyFeedbackCountsForLinearChart);
+      const monthlyFeedbackValues = Object.values(monthlyFeedbackCountsForLinearChart);
+
+      const monthlyUserCountsValues = Object.values(monthlyUserCountsForLinearChart);
+    
       let totalEmojis =
         countsOfEmojis[0] +
         countsOfEmojis[1] +
@@ -789,15 +845,16 @@ const feedbackStatistics = async (req, res) => {
       let Average = countsOfEmojis[3];
       let Poor = countsOfEmojis[4];
       let OverAllGood = countsOfEmojis[0] + countsOfEmojis[1] + countsOfEmojis[2];
-  
+    
       let OverAllGoodPercentage = Math.round((OverAllGood / totalEmojis) * 100);
       let AveragePercentage = Math.round((Average / totalEmojis) * 100);
       let PoorPercentage = Math.round((Poor / totalEmojis) * 100);
-  
-      // console.log("OverAllGood Percentage: " + OverAllGoodPercentage);
-      // console.log("Average Percentage: " + AveragePercentage);
-      // console.log("Poor Percentage: " + PoorPercentage);
-  
+      persentageOfemojis[0] = countsOfEmojis[0] != 0 ? Math.round((countsOfEmojis[0] / totalEmojis) * 100) : 0;  // Excellent percentage
+      persentageOfemojis[1] = countsOfEmojis[1] != 0 ? Math.round((countsOfEmojis[1] / totalEmojis) * 100) : 0;  // Very Good percentage
+      persentageOfemojis[2] = countsOfEmojis[2] != 0 ? Math.round((countsOfEmojis[2] / totalEmojis) * 100) : 0;  // Good percentage
+      persentageOfemojis[3] = countsOfEmojis[3] != 0 ? Math.round((countsOfEmojis[3] / totalEmojis) * 100) : 0;  // Average percentage
+      persentageOfemojis[4] = countsOfEmojis[4] != 0 ? Math.round((countsOfEmojis[4] / totalEmojis) * 100) : 0;  // Poor percentage
+    
       let NotLikelyAtAll =
         recommendationCounts["0 Not Likely at all"] +
         recommendationCounts["1 Not Likely at all"] +
@@ -806,31 +863,35 @@ const feedbackStatistics = async (req, res) => {
         recommendationCounts["4 Not Likely at all"] +
         recommendationCounts["5 Not Likely at all"] +
         recommendationCounts["6 Not Likely at all"];
-  
+    
       let Likely =
         recommendationCounts["7Likely"] + recommendationCounts["8Likely"];
-  
+    
       let ExtremelyLikely =
         recommendationCounts["9 Extremely Likely"] +
         recommendationCounts["10 Extremely Likely"];
-      // console.log(ExtremelyLikely, Likely, NotLikelyAtAll);
-  
+    
       let ExtremelyLikelyPercentage = Math.round((ExtremelyLikely / TotalcountOfRecommendation) * 100);
       let LikelyPercentage = Math.round((Likely / TotalcountOfRecommendation) * 100);
       let NotLikelyAtAllPercentage = Math.round((NotLikelyAtAll / TotalcountOfRecommendation) * 100);
-      // console.log(ExtremelyLikelyPercentage,LikelyPercentage,NotLikelyAtAllPercentage)
+    
       return res.status(200).send({
         status: true,
         data: {
-          countsOfEmojis,
+          persentageOfemojis,
           totalFeedbacks: data.length,
+          totalUsers: userData.length,
           monthly_Feedback_Counts_LinearChart: {
             keys: monthlyFeedbackKeys,
             values: monthlyFeedbackValues,
           },
+          monthly_User_Counts_LinearChart: {
+            keys: monthlyFeedbackKeys,
+            values: monthlyUserCountsValues,
+          },
           recommendation_Counts_bar_chart: {
-            keys: recommendationKeys,
-            values: recommendationValues,
+            keys: Object.keys(recommendationCounts),
+            values: Object.values(recommendationCounts),
             countOfRecommendation: TotalcountOfRecommendation,
           },
           satisfactionPieChart: [
@@ -838,10 +899,17 @@ const feedbackStatistics = async (req, res) => {
             AveragePercentage,
             PoorPercentage,
           ],
-         recommendationPieChart:[ExtremelyLikelyPercentage,LikelyPercentage,NotLikelyAtAllPercentage]
+          recommendationPieChart: [
+            ExtremelyLikelyPercentage,
+            LikelyPercentage,
+            NotLikelyAtAllPercentage,
+          ],
         },
       });
     }
+
+
+
     if (filters.filter == "Yesterday") {
       let yesterdayDate = moment().subtract(1, "days").format("YYYY-MM-DD");
 
@@ -860,23 +928,37 @@ const feedbackStatistics = async (req, res) => {
         { $sort: { createdAt: -1 } },
       ]);
 
+      
       // console.log(`Total records fetched: ${data.length}`);
 
+      let userData = await userDataModel.aggregate([
+        {
+          $match: {
+            isDeleted: false,
+            $expr: {
+              $and: [
+                { $eq: ["$date", yesterdayDate] },
+                //   { $lte: ["$date", endDate] }
+              ],
+            },
+          },
+        },
+        { $sort: { createdAt: -1 } },
+      ]);
+
+      // console.log(`Total user records fetched: ${userData.length}`);
+    
       // Initialize counts for ratings
       const countsOfEmojis = [0, 0, 0, 0, 0]; // Indexes: 0 - Excellent, 1 - Very Good, 2 - Good, 3 - Average, 4 - Poor
-  
+    
       // Array of valid ratings corresponding to their positions in the counts array
-      const ratingIndexMap = [
-        "excellent",
-        "very good",
-        "good",
-        "average",
-        "poor",
-      ];
-  
+      const ratingIndexMap = ["excellent", "very good", "good", "average", "poor"];
+    
       // Object to store feedback counts per month
       const monthlyFeedbackCountsForLinearChart = {};
-  
+      const monthlyUserCountsForLinearChart = {};
+      let persentageOfemojis = [0, 0, 0, 0, 0];
+    
       // Array of month names
       const monthNames = [
         "January",
@@ -892,7 +974,7 @@ const feedbackStatistics = async (req, res) => {
         "November",
         "December",
       ];
-  
+    
       // Initialize counts for recommendations
       const recommendationCounts = {
         "0 Not Likely at all": 0,
@@ -908,19 +990,20 @@ const feedbackStatistics = async (req, res) => {
         "10 Extremely Likely": 0,
       };
       let TotalcountOfRecommendation = 0;
-      // Process each record
+    
+      // Process each feedback record
       data.forEach((item) => {
         // Extract month and year from the date
         const date = new Date(item.date);
         const monthYear = `${monthNames[date.getMonth()]}-${date.getFullYear()}`; // e.g., "May-2024"
-  
+    
         // Increment the count for the corresponding month
         if (monthlyFeedbackCountsForLinearChart[monthYear]) {
           monthlyFeedbackCountsForLinearChart[monthYear]++;
         } else {
           monthlyFeedbackCountsForLinearChart[monthYear] = 1;
         }
-  
+    
         // Array of keys containing ratings
         const ratingKeys = [
           "overAllPerformance",
@@ -938,42 +1021,51 @@ const feedbackStatistics = async (req, res) => {
           "billExplanation",
           "transparencyPrice",
         ];
-  
+    
         // Iterate over rating keys and count occurrences of each rating category
         ratingKeys.forEach((key) => {
           const rating = item[key];
           // Normalize rating by converting to lowercase and trimming spaces
           const normalizedRating = rating?.toString().toLowerCase().trim();
-  
+    
           // Find the index of the normalized rating in the ratingIndexMap array
           const index = ratingIndexMap.indexOf(normalizedRating);
           if (index !== -1) {
             countsOfEmojis[index]++;
           }
         });
-  
-        // // Process recommendation key
-        // let countOfRecommendation = 0
+    
+        // Process recommendation key
         const recommendation = item.recommendation?.toString().trim();
         if (recommendationCounts.hasOwnProperty(recommendation)) {
           TotalcountOfRecommendation++;
           recommendationCounts[recommendation]++;
         }
       });
-  
+    
+      // Initialize all month-year combinations in the user counts chart to zero
+      const allMonthYearKeys = Object.keys(monthlyFeedbackCountsForLinearChart);
+      allMonthYearKeys.forEach((monthYear) => {
+        monthlyUserCountsForLinearChart[monthYear] = 0;
+      });
+    
+      // Process each user record
+      userData.forEach((item) => {
+        // Extract month and year from the date
+        const date = new Date(item.date);
+        const monthYear = `${monthNames[date.getMonth()]}-${date.getFullYear()}`; // e.g., "May-2024"
+    
+        // Increment the count for the corresponding month
+        if (monthlyUserCountsForLinearChart[monthYear] !== undefined) {
+          monthlyUserCountsForLinearChart[monthYear]++;
+        }
+      });
+    
       // Separate keys and values into two arrays
-      const monthlyFeedbackKeys = Object.keys(
-        monthlyFeedbackCountsForLinearChart
-      );
-      const monthlyFeedbackValues = Object.values(
-        monthlyFeedbackCountsForLinearChart
-      );
-  
-      // Separate keys and values for recommendation counts
-      const recommendationKeys = Object.keys(recommendationCounts);
-      const recommendationValues = Object.values(recommendationCounts);
-      // console.log("countOfRecommendation")
-  
+      const monthlyFeedbackKeys = Object.keys(monthlyFeedbackCountsForLinearChart);
+      const monthlyFeedbackValues = Object.values(monthlyFeedbackCountsForLinearChart);
+      const monthlyUserCountsValues = Object.values(monthlyUserCountsForLinearChart);
+    
       let totalEmojis =
         countsOfEmojis[0] +
         countsOfEmojis[1] +
@@ -983,15 +1075,16 @@ const feedbackStatistics = async (req, res) => {
       let Average = countsOfEmojis[3];
       let Poor = countsOfEmojis[4];
       let OverAllGood = countsOfEmojis[0] + countsOfEmojis[1] + countsOfEmojis[2];
-  
+    
       let OverAllGoodPercentage = Math.round((OverAllGood / totalEmojis) * 100);
       let AveragePercentage = Math.round((Average / totalEmojis) * 100);
       let PoorPercentage = Math.round((Poor / totalEmojis) * 100);
-  
-      // console.log("OverAllGood Percentage: " + OverAllGoodPercentage);
-      // console.log("Average Percentage: " + AveragePercentage);
-      // console.log("Poor Percentage: " + PoorPercentage);
-  
+      persentageOfemojis[0] = countsOfEmojis[0] != 0 ? Math.round((countsOfEmojis[0] / totalEmojis) * 100) : 0;  // Excellent percentage
+      persentageOfemojis[1] = countsOfEmojis[1] != 0 ? Math.round((countsOfEmojis[1] / totalEmojis) * 100) : 0;  // Very Good percentage
+      persentageOfemojis[2] = countsOfEmojis[2] != 0 ? Math.round((countsOfEmojis[2] / totalEmojis) * 100) : 0;  // Good percentage
+      persentageOfemojis[3] = countsOfEmojis[3] != 0 ? Math.round((countsOfEmojis[3] / totalEmojis) * 100) : 0;  // Average percentage
+      persentageOfemojis[4] = countsOfEmojis[4] != 0 ? Math.round((countsOfEmojis[4] / totalEmojis) * 100) : 0;  // Poor percentage
+    
       let NotLikelyAtAll =
         recommendationCounts["0 Not Likely at all"] +
         recommendationCounts["1 Not Likely at all"] +
@@ -1000,31 +1093,36 @@ const feedbackStatistics = async (req, res) => {
         recommendationCounts["4 Not Likely at all"] +
         recommendationCounts["5 Not Likely at all"] +
         recommendationCounts["6 Not Likely at all"];
-  
+    
       let Likely =
         recommendationCounts["7Likely"] + recommendationCounts["8Likely"];
-  
+    
       let ExtremelyLikely =
         recommendationCounts["9 Extremely Likely"] +
         recommendationCounts["10 Extremely Likely"];
-      // console.log(ExtremelyLikely, Likely, NotLikelyAtAll);
-  
+    
       let ExtremelyLikelyPercentage = Math.round((ExtremelyLikely / TotalcountOfRecommendation) * 100);
       let LikelyPercentage = Math.round((Likely / TotalcountOfRecommendation) * 100);
       let NotLikelyAtAllPercentage = Math.round((NotLikelyAtAll / TotalcountOfRecommendation) * 100);
-      // console.log(ExtremelyLikelyPercentage,LikelyPercentage,NotLikelyAtAllPercentage)
+    
       return res.status(200).send({
         status: true,
         data: {
-          countsOfEmojis,
+          persentageOfemojis,
           totalFeedbacks: data.length,
+          totalUsers: userData.length,
+          
           monthly_Feedback_Counts_LinearChart: {
             keys: monthlyFeedbackKeys,
             values: monthlyFeedbackValues,
           },
+          monthly_User_Counts_LinearChart: {
+            keys: monthlyFeedbackKeys,
+            values: monthlyUserCountsValues,
+          },
           recommendation_Counts_bar_chart: {
-            keys: recommendationKeys,
-            values: recommendationValues,
+            keys: Object.keys(recommendationCounts),
+            values: Object.values(recommendationCounts),
             countOfRecommendation: TotalcountOfRecommendation,
           },
           satisfactionPieChart: [
@@ -1032,15 +1130,35 @@ const feedbackStatistics = async (req, res) => {
             AveragePercentage,
             PoorPercentage,
           ],
-         recommendationPieChart:[ExtremelyLikelyPercentage,LikelyPercentage,NotLikelyAtAllPercentage]
+          recommendationPieChart: [
+            ExtremelyLikelyPercentage,
+            LikelyPercentage,
+            NotLikelyAtAllPercentage,
+          ],
         },
       });
     }
 
     if (filters.filter == "Current Month") {
+
       let startOfMonth = moment().startOf("month").format("YYYY-MM-DD");
       let currentDate = moment().format("YYYY-MM-DD");
       let data = await feedbackModel.aggregate([
+        {
+          $match: {
+            isDeleted: false,
+            $expr: {
+              $and: [
+                { $gte: ["$date", startOfMonth] },
+                { $lte: ["$date", currentDate] },
+              ],
+            },
+          },
+        },
+        { $sort: { createdAt: -1 } },
+      ]);
+
+      let userData = await userDataModel.aggregate([
         {
           $match: {
             isDeleted: false,
@@ -1071,7 +1189,8 @@ const feedbackStatistics = async (req, res) => {
   
       // Object to store feedback counts per month
       const monthlyFeedbackCountsForLinearChart = {};
-  
+      const monthlyUserCountsForLinearChart = {};
+      let persentageOfemojis = [0,0,0,0,0]
       // Array of month names
       const monthNames = [
         "January",
@@ -1155,7 +1274,24 @@ const feedbackStatistics = async (req, res) => {
           recommendationCounts[recommendation]++;
         }
       });
-  
+
+      const allMonthYearKeys = Object.keys(monthlyFeedbackCountsForLinearChart);
+      allMonthYearKeys.forEach((monthYear) => {
+        monthlyUserCountsForLinearChart[monthYear] = 0;
+      });
+    
+      // Process each user record
+      userData.forEach((item) => {
+        // Extract month and year from the date
+        const date = new Date(item.date);
+        const monthYear = `${monthNames[date.getMonth()]}-${date.getFullYear()}`; // e.g., "May-2024"
+    
+        // Increment the count for the corresponding month
+        if (monthlyUserCountsForLinearChart[monthYear] !== undefined) {
+          monthlyUserCountsForLinearChart[monthYear]++;
+        }
+      });
+
       // Separate keys and values into two arrays
       const monthlyFeedbackKeys = Object.keys(
         monthlyFeedbackCountsForLinearChart
@@ -1163,7 +1299,8 @@ const feedbackStatistics = async (req, res) => {
       const monthlyFeedbackValues = Object.values(
         monthlyFeedbackCountsForLinearChart
       );
-  
+        const monthlyUserCountsValues = Object.values(monthlyUserCountsForLinearChart);
+    
       // Separate keys and values for recommendation counts
       const recommendationKeys = Object.keys(recommendationCounts);
       const recommendationValues = Object.values(recommendationCounts);
@@ -1183,6 +1320,11 @@ const feedbackStatistics = async (req, res) => {
       let AveragePercentage = Math.round((Average / totalEmojis) * 100);
       let PoorPercentage = Math.round((Poor / totalEmojis) * 100);
   
+      persentageOfemojis[0] = countsOfEmojis[0] != 0 ? Math.round((countsOfEmojis[0] / totalEmojis) * 100) : 0;  // Excellent percentage
+      persentageOfemojis[1] = countsOfEmojis[1] != 0 ? Math.round((countsOfEmojis[1] / totalEmojis) * 100) : 0;  // Very Good percentage
+      persentageOfemojis[2] = countsOfEmojis[2] != 0 ? Math.round((countsOfEmojis[2] / totalEmojis) * 100) : 0;  // Good percentage
+      persentageOfemojis[3] = countsOfEmojis[3] != 0 ? Math.round((countsOfEmojis[3] / totalEmojis) * 100) : 0;  // Average percentage
+      persentageOfemojis[4] = countsOfEmojis[4] != 0 ? Math.round((countsOfEmojis[4] / totalEmojis) * 100) : 0;  // Poor percentage
       // console.log("OverAllGood Percentage: " + OverAllGoodPercentage);
       // console.log("Average Percentage: " + AveragePercentage);
       // console.log("Poor Percentage: " + PoorPercentage);
@@ -1211,17 +1353,23 @@ const feedbackStatistics = async (req, res) => {
       return res.status(200).send({
         status: true,
         data: {
-          countsOfEmojis,
+          persentageOfemojis,
           totalFeedbacks: data.length,
+
           monthly_Feedback_Counts_LinearChart: {
             keys: monthlyFeedbackKeys,
             values: monthlyFeedbackValues,
+          },
+          monthly_User_Counts_LinearChart: {
+            keys: monthlyFeedbackKeys,
+            values: monthlyUserCountsValues,
           },
           recommendation_Counts_bar_chart: {
             keys: recommendationKeys,
             values: recommendationValues,
             countOfRecommendation: TotalcountOfRecommendation,
           },
+          
           satisfactionPieChart: [
             OverAllGoodPercentage,
             AveragePercentage,
@@ -1258,6 +1406,20 @@ const feedbackStatistics = async (req, res) => {
         { $sort: { createdAt: -1 } },
       ]);
 
+  let userData = await userDataModel.aggregate([
+        {
+          $match: {
+            isDeleted: false,
+            $expr: {
+              $and: [
+                { $gte: ["$date", lastMonthStartDate] },
+                { $lte: ["$date", lastMonthEndDate] },
+              ],
+            },
+          },
+        },
+        { $sort: { createdAt: -1 } },
+      ]);
       // console.log(`Total records fetched: ${data.length}`);
 
       // Initialize counts for ratings
@@ -1274,7 +1436,8 @@ const feedbackStatistics = async (req, res) => {
   
       // Object to store feedback counts per month
       const monthlyFeedbackCountsForLinearChart = {};
-  
+      const monthlyUserCountsForLinearChart = {};
+      let persentageOfemojis = [0,0,0,0,0]
       // Array of month names
       const monthNames = [
         "January",
@@ -1359,6 +1522,23 @@ const feedbackStatistics = async (req, res) => {
         }
       });
   
+      const allMonthYearKeys = Object.keys(monthlyFeedbackCountsForLinearChart);
+      allMonthYearKeys.forEach((monthYear) => {
+        monthlyUserCountsForLinearChart[monthYear] = 0;
+      });
+    
+      // Process each user record
+      userData.forEach((item) => {
+        // Extract month and year from the date
+        const date = new Date(item.date);
+        const monthYear = `${monthNames[date.getMonth()]}-${date.getFullYear()}`; // e.g., "May-2024"
+    
+        // Increment the count for the corresponding month
+        if (monthlyUserCountsForLinearChart[monthYear] !== undefined) {
+          monthlyUserCountsForLinearChart[monthYear]++;
+        }
+      });
+    
       // Separate keys and values into two arrays
       const monthlyFeedbackKeys = Object.keys(
         monthlyFeedbackCountsForLinearChart
@@ -1370,6 +1550,7 @@ const feedbackStatistics = async (req, res) => {
       // Separate keys and values for recommendation counts
       const recommendationKeys = Object.keys(recommendationCounts);
       const recommendationValues = Object.values(recommendationCounts);
+      const monthlyUserCountsValues = Object.values(monthlyUserCountsForLinearChart);
       // console.log("countOfRecommendation")
   
       let totalEmojis =
@@ -1386,6 +1567,11 @@ const feedbackStatistics = async (req, res) => {
       let AveragePercentage = Math.round((Average / totalEmojis) * 100);
       let PoorPercentage = Math.round((Poor / totalEmojis) * 100);
   
+      persentageOfemojis[0] = countsOfEmojis[0] != 0 ? Math.round((countsOfEmojis[0] / totalEmojis) * 100) : 0;  // Excellent percentage
+      persentageOfemojis[1] = countsOfEmojis[1] != 0 ? Math.round((countsOfEmojis[1] / totalEmojis) * 100) : 0;  // Very Good percentage
+      persentageOfemojis[2] = countsOfEmojis[2] != 0 ? Math.round((countsOfEmojis[2] / totalEmojis) * 100) : 0;  // Good percentage
+      persentageOfemojis[3] = countsOfEmojis[3] != 0 ? Math.round((countsOfEmojis[3] / totalEmojis) * 100) : 0;  // Average percentage
+      persentageOfemojis[4] = countsOfEmojis[4] != 0 ? Math.round((countsOfEmojis[4] / totalEmojis) * 100) : 0;  // Poor percentage
       // console.log("OverAllGood Percentage: " + OverAllGoodPercentage);
       // console.log("Average Percentage: " + AveragePercentage);
       // console.log("Poor Percentage: " + PoorPercentage);
@@ -1414,12 +1600,17 @@ const feedbackStatistics = async (req, res) => {
       return res.status(200).send({
         status: true,
         data: {
-          countsOfEmojis,
+          persentageOfemojis,
           totalFeedbacks: data.length,
           monthly_Feedback_Counts_LinearChart: {
             keys: monthlyFeedbackKeys,
             values: monthlyFeedbackValues,
           },
+          monthly_User_Counts_LinearChart: {
+            keys: monthlyFeedbackKeys,
+            values: monthlyUserCountsValues,
+          }, 
+
           recommendation_Counts_bar_chart: {
             keys: recommendationKeys,
             values: recommendationValues,
@@ -1468,6 +1659,23 @@ const feedbackStatistics = async (req, res) => {
       ]);
       // console.log(`Total records fetched: ${data.length}`);
 
+       // Fetch user data
+       let userData = await userDataModel.aggregate([
+        {
+          $match: {
+            isDeleted: false,
+            $expr: {
+              $and: [
+                { $gte: ["$date", lastWeekStartDate] },
+                { $lte: ["$date", lastWeekEndDate] },
+              ],
+            },
+          },
+        },
+        { $sort: { createdAt: -1 } },
+      ]);
+
+      // console.log(`Total user records fetched: ${userData.length}`);
       // Initialize counts for ratings
       const countsOfEmojis = [0, 0, 0, 0, 0]; // Indexes: 0 - Excellent, 1 - Very Good, 2 - Good, 3 - Average, 4 - Poor
   
@@ -1482,7 +1690,8 @@ const feedbackStatistics = async (req, res) => {
   
       // Object to store feedback counts per month
       const monthlyFeedbackCountsForLinearChart = {};
-  
+      const monthlyUserCountsForLinearChart = {};
+      let persentageOfemojis = [0,0,0,0,0]
       // Array of month names
       const monthNames = [
         "January",
@@ -1567,6 +1776,22 @@ const feedbackStatistics = async (req, res) => {
         }
       });
   
+      const allMonthYearKeys = Object.keys(monthlyFeedbackCountsForLinearChart);
+      allMonthYearKeys.forEach((monthYear) => {
+        monthlyUserCountsForLinearChart[monthYear] = 0;
+      });
+    
+      // Process each user record
+      userData.forEach((item) => {
+        // Extract month and year from the date
+        const date = new Date(item.date);
+        const monthYear = `${monthNames[date.getMonth()]}-${date.getFullYear()}`; // e.g., "May-2024"
+    
+        // Increment the count for the corresponding month
+        if (monthlyUserCountsForLinearChart[monthYear] !== undefined) {
+          monthlyUserCountsForLinearChart[monthYear]++;
+        }
+      });
       // Separate keys and values into two arrays
       const monthlyFeedbackKeys = Object.keys(
         monthlyFeedbackCountsForLinearChart
@@ -1574,6 +1799,7 @@ const feedbackStatistics = async (req, res) => {
       const monthlyFeedbackValues = Object.values(
         monthlyFeedbackCountsForLinearChart
       );
+      const monthlyUserCountsValues = Object.values(monthlyUserCountsForLinearChart);
   
       // Separate keys and values for recommendation counts
       const recommendationKeys = Object.keys(recommendationCounts);
@@ -1594,6 +1820,11 @@ const feedbackStatistics = async (req, res) => {
       let AveragePercentage = Math.round((Average / totalEmojis) * 100);
       let PoorPercentage = Math.round((Poor / totalEmojis) * 100);
   
+      persentageOfemojis[0] = countsOfEmojis[0] != 0 ? Math.round((countsOfEmojis[0] / totalEmojis) * 100) : 0;  // Excellent percentage
+      persentageOfemojis[1] = countsOfEmojis[1] != 0 ? Math.round((countsOfEmojis[1] / totalEmojis) * 100) : 0;  // Very Good percentage
+      persentageOfemojis[2] = countsOfEmojis[2] != 0 ? Math.round((countsOfEmojis[2] / totalEmojis) * 100) : 0;  // Good percentage
+      persentageOfemojis[3] = countsOfEmojis[3] != 0 ? Math.round((countsOfEmojis[3] / totalEmojis) * 100) : 0;  // Average percentage
+      persentageOfemojis[4] = countsOfEmojis[4] != 0 ? Math.round((countsOfEmojis[4] / totalEmojis) * 100) : 0;  // Poor percentage
       // console.log("OverAllGood Percentage: " + OverAllGoodPercentage);
       // console.log("Average Percentage: " + AveragePercentage);
       // console.log("Poor Percentage: " + PoorPercentage);
@@ -1622,11 +1853,15 @@ const feedbackStatistics = async (req, res) => {
       return res.status(200).send({
         status: true,
         data: {
-          countsOfEmojis,
+          persentageOfemojis,
           totalFeedbacks: data.length,
           monthly_Feedback_Counts_LinearChart: {
             keys: monthlyFeedbackKeys,
             values: monthlyFeedbackValues,
+          },
+          monthly_User_Counts_LinearChart: {
+            keys: monthlyFeedbackKeys,
+            values: monthlyUserCountsValues,
           },
           recommendation_Counts_bar_chart: {
             keys: recommendationKeys,
@@ -1642,6 +1877,7 @@ const feedbackStatistics = async (req, res) => {
         },
       });
     }
+
     if (filters.filter == "Last 3 Month") {
       // Get the start of the last week (Sunday)
       let last3MonthStartDate = moment()
@@ -1669,6 +1905,23 @@ const feedbackStatistics = async (req, res) => {
 
       // console.log(`Total records fetched: ${data.length}`);
 
+       // Fetch user data
+       let userData = await userDataModel.aggregate([
+        {
+          $match: {
+            isDeleted: false,
+            $expr: {
+              $and: [
+                { $gte: ["$date", last3MonthStartDate] },
+                { $lte: ["$date", last3MonthEndDate] },
+              ],
+            },
+          },
+        },
+        { $sort: { createdAt: -1 } },
+      ]);
+
+      // console.log(`Total user records fetched: ${userData.length}`);
       // Initialize counts for ratings
       const countsOfEmojis = [0, 0, 0, 0, 0]; // Indexes: 0 - Excellent, 1 - Very Good, 2 - Good, 3 - Average, 4 - Poor
   
@@ -1683,7 +1936,8 @@ const feedbackStatistics = async (req, res) => {
   
       // Object to store feedback counts per month
       const monthlyFeedbackCountsForLinearChart = {};
-  
+      const monthlyUserCountsForLinearChart = {};
+      let persentageOfemojis = [0,0,0,0,0]
       // Array of month names
       const monthNames = [
         "January",
@@ -1768,6 +2022,23 @@ const feedbackStatistics = async (req, res) => {
         }
       });
   
+      const allMonthYearKeys = Object.keys(monthlyFeedbackCountsForLinearChart);
+      allMonthYearKeys.forEach((monthYear) => {
+        monthlyUserCountsForLinearChart[monthYear] = 0;
+      });
+    
+      // Process each user record
+      userData.forEach((item) => {
+        // Extract month and year from the date
+        const date = new Date(item.date);
+        const monthYear = `${monthNames[date.getMonth()]}-${date.getFullYear()}`; // e.g., "May-2024"
+    
+        // Increment the count for the corresponding month
+        if (monthlyUserCountsForLinearChart[monthYear] !== undefined) {
+          monthlyUserCountsForLinearChart[monthYear]++;
+        }
+      });
+
       // Separate keys and values into two arrays
       const monthlyFeedbackKeys = Object.keys(
         monthlyFeedbackCountsForLinearChart
@@ -1775,7 +2046,8 @@ const feedbackStatistics = async (req, res) => {
       const monthlyFeedbackValues = Object.values(
         monthlyFeedbackCountsForLinearChart
       );
-  
+   const monthlyUserCountsValues = Object.values(monthlyUserCountsForLinearChart);
+    
       // Separate keys and values for recommendation counts
       const recommendationKeys = Object.keys(recommendationCounts);
       const recommendationValues = Object.values(recommendationCounts);
@@ -1795,6 +2067,13 @@ const feedbackStatistics = async (req, res) => {
       let AveragePercentage = Math.round((Average / totalEmojis) * 100);
       let PoorPercentage = Math.round((Poor / totalEmojis) * 100);
   
+
+      persentageOfemojis[0] = countsOfEmojis[0] != 0 ? Math.round((countsOfEmojis[0] / totalEmojis) * 100) : 0;  // Excellent percentage
+      persentageOfemojis[1] = countsOfEmojis[1] != 0 ? Math.round((countsOfEmojis[1] / totalEmojis) * 100) : 0;  // Very Good percentage
+      persentageOfemojis[2] = countsOfEmojis[2] != 0 ? Math.round((countsOfEmojis[2] / totalEmojis) * 100) : 0;  // Good percentage
+      persentageOfemojis[3] = countsOfEmojis[3] != 0 ? Math.round((countsOfEmojis[3] / totalEmojis) * 100) : 0;  // Average percentage
+      persentageOfemojis[4] = countsOfEmojis[4] != 0 ? Math.round((countsOfEmojis[4] / totalEmojis) * 100) : 0;  // Poor percentage
+
       // console.log("OverAllGood Percentage: " + OverAllGoodPercentage);
       // console.log("Average Percentage: " + AveragePercentage);
       // console.log("Poor Percentage: " + PoorPercentage);
@@ -1823,11 +2102,15 @@ const feedbackStatistics = async (req, res) => {
       return res.status(200).send({
         status: true,
         data: {
-          countsOfEmojis,
+          persentageOfemojis,
           totalFeedbacks: data.length,
           monthly_Feedback_Counts_LinearChart: {
             keys: monthlyFeedbackKeys,
             values: monthlyFeedbackValues,
+          },
+          monthly_User_Counts_LinearChart: {
+            keys: monthlyFeedbackKeys,
+            values: monthlyUserCountsValues,
           },
           recommendation_Counts_bar_chart: {
             keys: recommendationKeys,
@@ -1868,6 +2151,21 @@ const feedbackStatistics = async (req, res) => {
         { $sort: { createdAt: -1 } },
       ]);
 
+      let userData = await userDataModel.aggregate([
+        {
+          $match: {
+            isDeleted: false,
+            $expr: {
+              $and: [
+                { $gte: ["$date", last6MonthStartDate] },
+                { $lte: ["$date", last6MonthEndDate] },
+              ],
+            },
+          },
+        },
+        { $sort: { createdAt: -1 } },
+      ]);
+      // console.log(`Total user records fetched: ${userData.length}`);
       // console.log(`Total records fetched: ${data.length}`);
 
       // Initialize counts for ratings
@@ -1884,7 +2182,8 @@ const feedbackStatistics = async (req, res) => {
   
       // Object to store feedback counts per month
       const monthlyFeedbackCountsForLinearChart = {};
-  
+      const monthlyUserCountsForLinearChart = {};
+      let persentageOfemojis = [0,0,0,0,0]
       // Array of month names
       const monthNames = [
         "January",
@@ -1969,6 +2268,22 @@ const feedbackStatistics = async (req, res) => {
         }
       });
   
+      const allMonthYearKeys = Object.keys(monthlyFeedbackCountsForLinearChart);
+      allMonthYearKeys.forEach((monthYear) => {
+        monthlyUserCountsForLinearChart[monthYear] = 0;
+      });
+    
+      // Process each user record
+      userData.forEach((item) => {
+        // Extract month and year from the date
+        const date = new Date(item.date);
+        const monthYear = `${monthNames[date.getMonth()]}-${date.getFullYear()}`; // e.g., "May-2024"
+    
+        // Increment the count for the corresponding month
+        if (monthlyUserCountsForLinearChart[monthYear] !== undefined) {
+          monthlyUserCountsForLinearChart[monthYear]++;
+        }
+      });
       // Separate keys and values into two arrays
       const monthlyFeedbackKeys = Object.keys(
         monthlyFeedbackCountsForLinearChart
@@ -1976,6 +2291,7 @@ const feedbackStatistics = async (req, res) => {
       const monthlyFeedbackValues = Object.values(
         monthlyFeedbackCountsForLinearChart
       );
+      const monthlyUserCountsValues = Object.values(monthlyUserCountsForLinearChart);
   
       // Separate keys and values for recommendation counts
       const recommendationKeys = Object.keys(recommendationCounts);
@@ -1996,6 +2312,11 @@ const feedbackStatistics = async (req, res) => {
       let AveragePercentage = Math.round((Average / totalEmojis) * 100);
       let PoorPercentage = Math.round((Poor / totalEmojis) * 100);
   
+      persentageOfemojis[0] = countsOfEmojis[0] != 0 ? Math.round((countsOfEmojis[0] / totalEmojis) * 100) : 0;  // Excellent percentage
+      persentageOfemojis[1] = countsOfEmojis[1] != 0 ? Math.round((countsOfEmojis[1] / totalEmojis) * 100) : 0;  // Very Good percentage
+      persentageOfemojis[2] = countsOfEmojis[2] != 0 ? Math.round((countsOfEmojis[2] / totalEmojis) * 100) : 0;  // Good percentage
+      persentageOfemojis[3] = countsOfEmojis[3] != 0 ? Math.round((countsOfEmojis[3] / totalEmojis) * 100) : 0;  // Average percentage
+      persentageOfemojis[4] = countsOfEmojis[4] != 0 ? Math.round((countsOfEmojis[4] / totalEmojis) * 100) : 0;  // Poor percentage
       // console.log("OverAllGood Percentage: " + OverAllGoodPercentage);
       // console.log("Average Percentage: " + AveragePercentage);
       // console.log("Poor Percentage: " + PoorPercentage);
@@ -2024,11 +2345,15 @@ const feedbackStatistics = async (req, res) => {
       return res.status(200).send({
         status: true,
         data: {
-          countsOfEmojis,
+          persentageOfemojis,
           totalFeedbacks: data.length,
           monthly_Feedback_Counts_LinearChart: {
             keys: monthlyFeedbackKeys,
             values: monthlyFeedbackValues,
+          },
+          monthly_User_Counts_LinearChart: {
+            keys: monthlyFeedbackKeys,
+            values: monthlyUserCountsValues,
           },
           recommendation_Counts_bar_chart: {
             keys: recommendationKeys,
@@ -2071,6 +2396,24 @@ const feedbackStatistics = async (req, res) => {
 
       // console.log(`Total records fetched: ${data.length}`);
 
+      let userData = await userDataModel.aggregate([
+        {
+          $match: {
+            isDeleted: false,
+            $expr: {
+              $and: [
+                { $gte: ["$date", last12MonthStartDate] },
+                { $lte: ["$date", last12MonthEndDate] },
+              ],
+            },
+          },
+        },
+        { $sort: { createdAt: -1 } },
+      ]);
+
+      // console.log(`Total user records fetched: ${userData.length}`);
+    
+
       // Initialize counts for ratings
       const countsOfEmojis = [0, 0, 0, 0, 0]; // Indexes: 0 - Excellent, 1 - Very Good, 2 - Good, 3 - Average, 4 - Poor
   
@@ -2085,7 +2428,8 @@ const feedbackStatistics = async (req, res) => {
   
       // Object to store feedback counts per month
       const monthlyFeedbackCountsForLinearChart = {};
-  
+      const monthlyUserCountsForLinearChart = {};
+      let persentageOfemojis = [0,0,0,0,0]
       // Array of month names
       const monthNames = [
         "January",
@@ -2170,6 +2514,23 @@ const feedbackStatistics = async (req, res) => {
         }
       });
   
+      const allMonthYearKeys = Object.keys(monthlyFeedbackCountsForLinearChart);
+      allMonthYearKeys.forEach((monthYear) => {
+        monthlyUserCountsForLinearChart[monthYear] = 0;
+      });
+    
+      // Process each user record
+      userData.forEach((item) => {
+        // Extract month and year from the date
+        const date = new Date(item.date);
+        const monthYear = `${monthNames[date.getMonth()]}-${date.getFullYear()}`; // e.g., "May-2024"
+    
+        // Increment the count for the corresponding month
+        if (monthlyUserCountsForLinearChart[monthYear] !== undefined) {
+          monthlyUserCountsForLinearChart[monthYear]++;
+        }
+      });
+    
       // Separate keys and values into two arrays
       const monthlyFeedbackKeys = Object.keys(
         monthlyFeedbackCountsForLinearChart
@@ -2178,6 +2539,8 @@ const feedbackStatistics = async (req, res) => {
         monthlyFeedbackCountsForLinearChart
       );
   
+      const monthlyUserCountsValues = Object.values(monthlyUserCountsForLinearChart);
+
       // Separate keys and values for recommendation counts
       const recommendationKeys = Object.keys(recommendationCounts);
       const recommendationValues = Object.values(recommendationCounts);
@@ -2197,6 +2560,11 @@ const feedbackStatistics = async (req, res) => {
       let AveragePercentage = Math.round((Average / totalEmojis) * 100);
       let PoorPercentage = Math.round((Poor / totalEmojis) * 100);
   
+      persentageOfemojis[0] = countsOfEmojis[0] != 0 ? Math.round((countsOfEmojis[0] / totalEmojis) * 100) : 0;  // Excellent percentage
+      persentageOfemojis[1] = countsOfEmojis[1] != 0 ? Math.round((countsOfEmojis[1] / totalEmojis) * 100) : 0;  // Very Good percentage
+      persentageOfemojis[2] = countsOfEmojis[2] != 0 ? Math.round((countsOfEmojis[2] / totalEmojis) * 100) : 0;  // Good percentage
+      persentageOfemojis[3] = countsOfEmojis[3] != 0 ? Math.round((countsOfEmojis[3] / totalEmojis) * 100) : 0;  // Average percentage
+      persentageOfemojis[4] = countsOfEmojis[4] != 0 ? Math.round((countsOfEmojis[4] / totalEmojis) * 100) : 0;  // Poor percentage
       // console.log("OverAllGood Percentage: " + OverAllGoodPercentage);
       // console.log("Average Percentage: " + AveragePercentage);
       // console.log("Poor Percentage: " + PoorPercentage);
@@ -2225,11 +2593,15 @@ const feedbackStatistics = async (req, res) => {
       return res.status(200).send({
         status: true,
         data: {
-          countsOfEmojis,
+          persentageOfemojis,
           totalFeedbacks: data.length,
           monthly_Feedback_Counts_LinearChart: {
             keys: monthlyFeedbackKeys,
             values: monthlyFeedbackValues,
+          },
+          monthly_User_Counts_LinearChart: {
+            keys: monthlyFeedbackKeys,
+            values: monthlyUserCountsValues,
           },
           recommendation_Counts_bar_chart: {
             keys: recommendationKeys,
@@ -2276,6 +2648,20 @@ const feedbackStatistics = async (req, res) => {
         { $sort: { createdAt: -1 } },
       ]);
 
+      let userData = await userDataModel.aggregate([
+        {
+          $match: {
+            isDeleted: false,
+            $expr: {
+              $and: [
+                { $gte: ["$date", previousYearStartDate] },
+                { $lte: ["$date", previousYearEndDate] },
+              ],
+            },
+          },
+        },
+        { $sort: { createdAt: -1 } },
+      ]);
       // console.log(`Total records fetched: ${data.length}`);
 
       // Initialize counts for ratings
@@ -2292,7 +2678,8 @@ const feedbackStatistics = async (req, res) => {
   
       // Object to store feedback counts per month
       const monthlyFeedbackCountsForLinearChart = {};
-  
+      const monthlyUserCountsForLinearChart = {};
+      let persentageOfemojis = [0,0,0,0,0]
       // Array of month names
       const monthNames = [
         "January",
@@ -2377,6 +2764,23 @@ const feedbackStatistics = async (req, res) => {
         }
       });
   
+
+      const allMonthYearKeys = Object.keys(monthlyFeedbackCountsForLinearChart);
+      allMonthYearKeys.forEach((monthYear) => {
+        monthlyUserCountsForLinearChart[monthYear] = 0;
+      });
+    
+      // Process each user record
+      userData.forEach((item) => {
+        // Extract month and year from the date
+        const date = new Date(item.date);
+        const monthYear = `${monthNames[date.getMonth()]}-${date.getFullYear()}`; // e.g., "May-2024"
+    
+        // Increment the count for the corresponding month
+        if (monthlyUserCountsForLinearChart[monthYear] !== undefined) {
+          monthlyUserCountsForLinearChart[monthYear]++;
+        }
+      });
       // Separate keys and values into two arrays
       const monthlyFeedbackKeys = Object.keys(
         monthlyFeedbackCountsForLinearChart
@@ -2388,6 +2792,7 @@ const feedbackStatistics = async (req, res) => {
       // Separate keys and values for recommendation counts
       const recommendationKeys = Object.keys(recommendationCounts);
       const recommendationValues = Object.values(recommendationCounts);
+      const monthlyUserCountsValues = Object.values(monthlyUserCountsForLinearChart);
       // console.log("countOfRecommendation")
   
       let totalEmojis =
@@ -2404,6 +2809,11 @@ const feedbackStatistics = async (req, res) => {
       let AveragePercentage = Math.round((Average / totalEmojis) * 100);
       let PoorPercentage = Math.round((Poor / totalEmojis) * 100);
   
+      persentageOfemojis[0] = countsOfEmojis[0] != 0 ? Math.round((countsOfEmojis[0] / totalEmojis) * 100) : 0;  // Excellent percentage
+      persentageOfemojis[1] = countsOfEmojis[1] != 0 ? Math.round((countsOfEmojis[1] / totalEmojis) * 100) : 0;  // Very Good percentage
+      persentageOfemojis[2] = countsOfEmojis[2] != 0 ? Math.round((countsOfEmojis[2] / totalEmojis) * 100) : 0;  // Good percentage
+      persentageOfemojis[3] = countsOfEmojis[3] != 0 ? Math.round((countsOfEmojis[3] / totalEmojis) * 100) : 0;  // Average percentage
+      persentageOfemojis[4] = countsOfEmojis[4] != 0 ? Math.round((countsOfEmojis[4] / totalEmojis) * 100) : 0;  // Poor percentage
       // console.log("OverAllGood Percentage: " + OverAllGoodPercentage);
       // console.log("Average Percentage: " + AveragePercentage);
       // console.log("Poor Percentage: " + PoorPercentage);
@@ -2432,12 +2842,19 @@ const feedbackStatistics = async (req, res) => {
       return res.status(200).send({
         status: true,
         data: {
-          countsOfEmojis,
+          // countsOfEmojis,
+          persentageOfemojis,
           totalFeedbacks: data.length,
+
           monthly_Feedback_Counts_LinearChart: {
             keys: monthlyFeedbackKeys,
             values: monthlyFeedbackValues,
           },
+          monthly_User_Counts_LinearChart: {
+            keys: monthlyFeedbackKeys,
+            values: monthlyUserCountsValues,
+          },
+          
           recommendation_Counts_bar_chart: {
             keys: recommendationKeys,
             values: recommendationValues,
