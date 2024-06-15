@@ -11,6 +11,7 @@ const csv = require('csvtojson');
 let {isValidPhone,isValidVehicleNumber}= require("../validation/validator")
 
 const importUser = async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
   try {
     moment.tz.setDefault("Asia/Kolkata"); // Default India time zone
     const currentDate = moment().format("YYYY-MM-DD");

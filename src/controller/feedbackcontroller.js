@@ -178,6 +178,7 @@ let getfeedback = async (req, res) => {
 };
 //==========================================================================================
 const filtersfeedbacks = async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
   try {
     let data = req.body;
     if (data.filter == "Between") {
