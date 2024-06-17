@@ -16,15 +16,17 @@ const importUser = async (req, res) => {
     moment.tz.setDefault("Asia/Kolkata"); // Default India time zone
     const currentDate = moment().format("YYYY-MM-DD");
     const times = moment().format("HH:mm:ss");
-    const filename = req.file.filename;
+    const filename = req.file //.filename;
 
     // Early exit if the filename does not include 'service'
-    if (!filename.toLowerCase().includes('service')) {
+    if (!filename.originalname.toLowerCase().includes('service')) {
       return res.status(400).json({
         status: false,
-        message: 'Please upload a filename contains text service in it.',
+        message: 'Please upload a filename that contains the text "service".',
       });
     }
+
+    console.log("File processing started:", filename.originalname);
 
     // Convert XLSX to CSV if necessary
     if (req.file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
@@ -32,6 +34,7 @@ const importUser = async (req, res) => {
       const sheetName = workbook.SheetNames[0];
       const csvData = xlsx.utils.sheet_to_csv(workbook.Sheets[sheetName]);
       fs.writeFileSync(req.file.path, csvData);
+      // console.log("File converted to CSV:", req.file.path);
     }
 
     const response = await csv().fromFile(req.file.path);
@@ -42,11 +45,11 @@ const importUser = async (req, res) => {
     // Process each row asynchronously to improve performance
     for (let x = 0; x < response.length; x++) {
       const rowKeys = Object.keys(response[x]);
-      const isEmptyRow = rowKeys.every((key) =>!response[x][key].trim());
+      const isEmptyRow = rowKeys.every((key) => !response[x][key].trim());
       if (isEmptyRow) continue;
 
       const requiredKeys = ['name', 'phone', 'vehicleNumber'];
-      const missingKeys = requiredKeys.filter((key) =>!rowKeys.includes(key));
+      const missingKeys = requiredKeys.filter((key) => !rowKeys.includes(key));
       if (missingKeys.length > 0) {
         invalidRows.push(...missingKeys.map(key => ({ row: x + 2, key })));
         continue;
@@ -84,6 +87,7 @@ const importUser = async (req, res) => {
     }
 
     if (invalidRows.length > 0 || duplicateEntries.length > 0) {
+      // console.log("Invalid rows or duplicate entries found:", { invalidRows, duplicateEntries });
       return res.status(400).json({
         status: false,
         message: 'Invalid rows or duplicate entries found in document',
@@ -93,8 +97,10 @@ const importUser = async (req, res) => {
 
     await userDataModel.insertMany(userData);
 
+    // console.log("User data imported successfully");
     res.status(200).send({ status: true, msg: 'Imported' });
   } catch (error) {
+    // console.error("Error in importUser:", error);
     res.status(500).send({ status: false, message: error.message });
   }
 };

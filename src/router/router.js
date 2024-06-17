@@ -28,13 +28,29 @@ router.get("/test-me", function (req, res) {
 //==================================================================================================
 app.use(express.static(path.resolve(__dirname, "../public")));
 // Multer storage configuration
+
+// Multer storage configuration for public/uploads directory
+// const storage = multer.diskStorage({
+//   destination: (req, file, cb) => {
+//     const directory = path.resolve(__dirname, "../public/uploads");
+//     if (!fs.existsSync(directory)) {
+//       fs.mkdirSync(directory, { recursive: true });
+//       console.log("Directory created:", directory);
+//     }
+//     cb(null, directory);
+//   },
+//   filename: (req, file, cb) => {
+//     console.log("Setting filename:", file.originalname);
+//     cb(null, file.originalname);
+//   },
+// });
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const directory = path.resolve(__dirname, "../public/uploads");
-    if (!fs.existsSync(directory)) {
-      fs.mkdirSync(directory, { recursive: true });
+    const tmpDir = '/tmp'; // Vercel's writable temporary directory
+    if (!fs.existsSync(tmpDir)) {
+      fs.mkdirSync(tmpDir);
     }
-    cb(null, directory);
+    cb(null, tmpDir);
   },
   filename: (req, file, cb) => {
     cb(null, file.originalname);
@@ -43,15 +59,26 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-// Improved error logging
 router.post("/importUser", upload.single("file"), (req, res, next) => {
+  console.log("Request received in /importUser");
+
   try {
+    if (!req.file) {
+      console.error("No file received");
+      return res.status(400).json({ status: false, message: "No file received" });
+    }
+
+    console.log("File received:", req.file);  // Log the file object for debugging
+
+    const filePath = req.file.path;
+    console.log("File path:", filePath);
     userDataController.importUser(req, res);
   } catch (error) {
     console.error("Error during importUser:", error);
     res.status(500).send("A server error has occurred: " + error.message);
   }
 });
+
 // router.post(
 //   "/importVendor",
 //   upload.single("file"),
