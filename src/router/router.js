@@ -26,23 +26,32 @@ router.get("/test-me", function (req, res) {
 });
 
 //==================================================================================================
-var storage = multer.diskStorage({
+app.use(express.static(path.resolve(__dirname, "../public")));
+// Multer storage configuration
+const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const directory = "src/public/uploads";
-    fs.mkdirSync(directory, { recursive: true });
+    const directory = path.resolve(__dirname, "../public/uploads");
+    if (!fs.existsSync(directory)) {
+      fs.mkdirSync(directory, { recursive: true });
+    }
     cb(null, directory);
   },
   filename: (req, file, cb) => {
     cb(null, file.originalname);
   },
 });
-// const storage = multer.memoryStorage();
-var upload = multer({ storage: storage });
-router.post(
-  "/importUser",
-  upload.single("file"),
-  userDataController.importUser
-);
+
+const upload = multer({ storage: storage });
+
+// Improved error logging
+router.post("/importUser", upload.single("file"), (req, res, next) => {
+  try {
+    userDataController.importUser(req, res);
+  } catch (error) {
+    console.error("Error during importUser:", error);
+    res.status(500).send("A server error has occurred: " + error.message);
+  }
+});
 // router.post(
 //   "/importVendor",
 //   upload.single("file"),
