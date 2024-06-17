@@ -29,13 +29,14 @@ router.get("/test-me", function (req, res) {
 var storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const directory = "src/public/uploads";
-    fs.mkdirSync(directory, { recursive: true }); // Create the directory if it doesn't exist
+    fs.mkdirSync(directory, { recursive: true });
     cb(null, directory);
   },
   filename: (req, file, cb) => {
     cb(null, file.originalname);
   },
 });
+// const storage = multer.memoryStorage();
 var upload = multer({ storage: storage });
 router.post(
   "/importUser",
