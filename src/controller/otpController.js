@@ -42,7 +42,7 @@ const otpVerification = async (req, res) => {
         const token = jwt.sign(
           { userID: customerData._id.toString() },
           process.env.Secret,
-          { expiresIn: "1hr" }
+          { expiresIn: "8hr" }
         );
   
         // Return successful login response
