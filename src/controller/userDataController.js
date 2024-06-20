@@ -115,7 +115,7 @@ const getUserData = async (req, res) => {
     // Retrieve all client documents from the clientModel collection
     let data = await userDataModel.aggregate([
       { $match: { isDeleted: false } }, // Match documents where the 'isDeleted' field is set to false
-      { $group: { _id: "$vehicleNumber", doc: { $first: "$$ROOT" } } }, // Group the documents by 'vchNo' and fetch the first document of each group
+      { $group: { _id: "$phone", doc: { $first: "$$ROOT" } } }, // Group the documents by 'PHONE' and fetch the first document of each group
       { $replaceRoot: { newRoot: "$doc" } }, // Replace the current root with the 'doc' object from the group (unwrap the grouped documents)
       { $sort: { createdAt: -1 } }, // Sort the documents in descending order based on the 'createdAt' field
     ]);
